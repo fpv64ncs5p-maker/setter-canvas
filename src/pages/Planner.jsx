@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Stage, Layer, Image as KonvaImage, Circle, Text, Group, Rect } from 'react-konva'
-import { db } from '../db/index'
+import { db, stamp, touch } from '../db/index'
 import { exportRouteCardPdf } from '../lib/exportPdf'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -395,14 +395,14 @@ function TestingTab({ routeId }) {
   useEffect(() => { loadTesters() }, [routeId])
 
   async function loadTesters() {
-    const data = await db.testers.where('routeId').equals(Number(routeId)).toArray()
+    const data = await db.testers.where('routeId').equals(routeId).toArray()
     setTesters(data)
   }
 
   async function handleAdd(e) {
     e.preventDefault()
     if (!form.name.trim()) return
-    await db.testers.add({ ...form, routeId: Number(routeId) })
+    await db.testers.add(stamp({ ...form, routeId }))
     setForm({ name: '', height: '', ability: 'Intermediate', completed: 'Yes', feedback: '', suggestedChanges: '', date: new Date().toISOString().split('T')[0] })
     setShowForm(false)
     loadTesters()
@@ -503,13 +503,13 @@ function FeedbackTab({ routeId }) {
   useEffect(() => { loadFeedback() }, [routeId])
 
   async function loadFeedback() {
-    const data = await db.feedback.where('routeId').equals(Number(routeId)).toArray()
+    const data = await db.feedback.where('routeId').equals(routeId).toArray()
     setEntries(data)
   }
 
   async function handleAdd(e) {
     e.preventDefault()
-    await db.feedback.add({ ...form, routeId: Number(routeId) })
+    await db.feedback.add(stamp({ ...form, routeId }))
     setForm({ customerName: '', date: new Date().toISOString().split('T')[0], rating: 3, feedback: '', tags: [] })
     setShowForm(false)
     loadFeedback()
@@ -715,7 +715,7 @@ export default function Planner() {
   }, [])
 
   async function loadData() {
-    const r = await db.routes.get(Number(routeId))
+    const r = await db.routes.get(routeId)
     if (!r) { navigate('/gyms'); return }
     setRoute(r)
 
@@ -765,7 +765,7 @@ export default function Planner() {
 
   async function handleSave() {
     setSaving(true)
-    await db.routes.update(Number(routeId), {
+    await db.routes.update(routeId, touch({
       // Metadata
       name:      meta.name,
       grade:     meta.grade,
@@ -779,7 +779,7 @@ export default function Planner() {
       stages,
       // Canvas
       canvasState: { grid, placedHolds },
-    })
+    }))
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
@@ -787,7 +787,7 @@ export default function Planner() {
 
   async function handleExportPdf() {
     setExporting(true)
-    const testers = await db.testers.where('routeId').equals(Number(routeId)).toArray()
+    const testers = await db.testers.where('routeId').equals(routeId).toArray()
     await exportRouteCardPdf({ route: { ...route, ...meta, stages }, wall, gym, testers })
     setExporting(false)
   }

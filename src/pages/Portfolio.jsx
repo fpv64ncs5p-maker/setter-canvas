@@ -185,14 +185,14 @@ export default function Portfolio() {
   useEffect(() => { loadData() }, [gymId])
 
   async function loadData() {
-    const gymData = await db.gyms.get(Number(gymId))
+    const gymData = await db.gyms.get(gymId)
     if (!gymData) { navigate('/gyms'); return }
     setGym(gymData)
 
-    const wallData = await db.walls.where('gymId').equals(Number(gymId)).toArray()
+    const wallData = await db.walls.where('gymId').equals(gymId).toArray()
     setWalls(wallData)
 
-    const routeData = await db.routes.where('gymId').equals(Number(gymId)).toArray()
+    const routeData = await db.routes.where('gymId').equals(gymId).toArray()
     // Sort newest first
     routeData.sort((a, b) => (b.dateSet ?? '').localeCompare(a.dateSet ?? ''))
     setRoutes(routeData)

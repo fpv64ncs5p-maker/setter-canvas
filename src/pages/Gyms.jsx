@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { db } from '../db/index'
+import { db, stamp, touch } from '../db/index'
 
 const GRADING_SYSTEMS = ['Fontainebleau', 'V-Scale', 'Custom']
 
@@ -218,9 +218,9 @@ export default function Gyms() {
 
   async function handleSave(form) {
     if (form.id) {
-      await db.gyms.update(form.id, form)
+      await db.gyms.update(form.id, touch(form))
     } else {
-      await db.gyms.add(form)
+      await db.gyms.add(stamp(form))
     }
     await loadGyms()
   }

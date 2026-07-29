@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { db } from '../db/index'
+import { db, touch } from '../db/index'
 
 const PHOTO_TYPES = [
   { id: 'stripped',   label: 'Stripped',    desc: 'Wall cleared of all holds',   emoji: '🧹' },
@@ -75,7 +75,7 @@ export default function MobileUpload() {
               : photoType === 'with-holds' ? 'photoWithHolds'
               : 'photoPartial'
 
-    await db.walls.update(selectedWall.id, { [key]: photoData, photo: photoData })
+    await db.walls.update(selectedWall.id, touch({ [key]: photoData, photo: photoData }))
     setUploading(false)
     setStep(4)
   }

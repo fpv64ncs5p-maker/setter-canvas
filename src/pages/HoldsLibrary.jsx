@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { db } from '../db/index'
+import { db, stamp, touch } from '../db/index'
 
 const HOLD_TYPES = ['Jug', 'Crimp', 'Sloper', 'Pinch', 'Pocket', 'Volume', 'Feature', 'Down climb jug']
 const SIZES = ['S', 'M', 'L', 'XL']
@@ -321,18 +321,18 @@ export default function HoldsLibrary() {
   }, [gymId])
 
   async function loadData() {
-    const gymData = await db.gyms.get(Number(gymId))
+    const gymData = await db.gyms.get(gymId)
     if (!gymData) { navigate('/gyms'); return }
     setGym(gymData)
-    const holdData = await db.holds.where('gymId').equals(Number(gymId)).toArray()
+    const holdData = await db.holds.where('gymId').equals(gymId).toArray()
     setHolds(holdData)
   }
 
   async function handleSave(form) {
     if (form.id) {
-      await db.holds.update(form.id, { ...form, gymId: Number(gymId) })
+      await db.holds.update(form.id, touch({ ...form, gymId }))
     } else {
-      await db.holds.add({ ...form, gymId: Number(gymId) })
+      await db.holds.add(stamp({ ...form, gymId }))
     }
     await loadData()
   }

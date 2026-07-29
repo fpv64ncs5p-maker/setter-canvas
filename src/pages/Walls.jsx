@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { db } from '../db/index'
+import { db, stamp, touch } from '../db/index'
 
 const WALL_TYPES = ['Boulder', 'Lead', 'Top-rope']
 const ANGLES = ['Vertical', '15°', '30°', '45°', 'Roof']
@@ -269,18 +269,18 @@ export default function Walls() {
   useEffect(() => { loadData() }, [gymId])
 
   async function loadData() {
-    const gymData = await db.gyms.get(Number(gymId))
+    const gymData = await db.gyms.get(gymId)
     if (!gymData) { navigate('/gyms'); return }
     setGym(gymData)
-    const wallData = await db.walls.where('gymId').equals(Number(gymId)).toArray()
+    const wallData = await db.walls.where('gymId').equals(gymId).toArray()
     setWalls(wallData)
   }
 
   async function handleSave(form) {
     if (form.id) {
-      await db.walls.update(form.id, { ...form, gymId: Number(gymId) })
+      await db.walls.update(form.id, touch({ ...form, gymId }))
     } else {
-      await db.walls.add({ ...form, gymId: Number(gymId) })
+      await db.walls.add(stamp({ ...form, gymId }))
     }
     await loadData()
   }
@@ -291,15 +291,15 @@ export default function Walls() {
   }
 
   async function handleNewRoute(wall) {
-    const routeId = await db.routes.add({
+    const routeId = await db.routes.add(stamp({
       wallId: wall.id,
-      gymId: Number(gymId),
+      gymId,
       name: `Route on ${wall.name}`,
       grade: '',
       status: 'planned',
       dateSet: new Date().toISOString().split('T')[0],
       canvasState: null,
-    })
+    }))
     navigate(`/planner/${routeId}`)
   }
 
