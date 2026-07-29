@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { db, stamp, touch } from '../db/index'
 import { savePhoto, deletePhoto } from '../lib/photos'
 import { usePhoto } from '../lib/usePhoto'
+import { PHOTO_SLOTS, displayPhotoId, availablePhotos } from '../lib/wallPhotos'
 
 const WALL_TYPES = ['Boulder', 'Lead', 'Top-rope']
 const ANGLES = ['Vertical', '15°', '30°', '45°', 'Roof']
@@ -13,7 +14,54 @@ const defaultForm = {
   angle: 'Vertical',
   height: '',
   width: '',
-  photoId: null,
+  photoStrippedId: null,
+  photoWithHoldsId: null,
+  photoPartialId: null,
+}
+
+// ── Photo slot ───────────────────────────────────────────────────────────────
+
+function PhotoSlot({ slot, photoId, busy, onPick, onRemove }) {
+  const url = usePhoto(photoId)
+
+  return (
+    <div className="flex items-center gap-3 bg-slate-800/50 border border-slate-700 rounded-lg p-2">
+      {/* Thumbnail or placeholder */}
+      <div className="w-16 h-12 shrink-0 rounded-md overflow-hidden bg-slate-800 flex items-center justify-center">
+        {url
+          ? <img src={url} alt={slot.label} className="w-full h-full object-cover" />
+          : <span className="text-slate-600 text-xs">—</span>}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-slate-200">{slot.label}</span>
+          {slot.id === 'stripped' && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-900">
+              planning
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-slate-500 truncate">{busy ? 'Resizing…' : slot.hint}</p>
+      </div>
+
+      <div className="shrink-0 flex items-center gap-2">
+        <label className="text-xs px-2 py-1 rounded-md bg-slate-700 text-white hover:bg-slate-600 cursor-pointer transition-colors">
+          {url ? 'Replace' : 'Add'}
+          <input type="file" accept="image/*" onChange={onPick} disabled={busy} className="hidden" />
+        </label>
+        {url && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="text-xs text-slate-500 hover:text-red-400 transition-colors"
+          >
+            Remove
+          </button>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ── Modal ────────────────────────────────────────────────────────────────────
@@ -21,31 +69,32 @@ const defaultForm = {
 function WallModal({ wall, gymId, onClose, onSave }) {
   const [form, setForm] = useState(wall ? { ...wall } : { ...defaultForm })
   const [error, setError] = useState('')
-  const [photoBusy, setPhotoBusy] = useState(false)
-  const photoPreview = usePhoto(form.photoId)
+  const [busySlot, setBusySlot] = useState(null)
 
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
-  async function handlePhotoChange(e) {
+  async function handleSlotChange(slotKey, e) {
     const file = e.target.files[0]
     if (!file) return
-    setPhotoBusy(true)
+    setBusySlot(slotKey)
     try {
       // Resized and stored locally; uploaded later if signed in.
       const photoId = await savePhoto(file, gymId)
-      set('photoId', photoId)
+      const previous = form[slotKey]
+      set(slotKey, photoId)
+      if (previous) await deletePhoto(previous)   // replacing, not accumulating
     } catch {
       setError('Could not read that image. Try a different file.')
     } finally {
-      setPhotoBusy(false)
+      setBusySlot(null)
     }
   }
 
-  async function handleRemovePhoto() {
-    const id = form.photoId
-    set('photoId', null)
+  async function handleRemoveSlot(slotKey) {
+    const id = form[slotKey]
+    set(slotKey, null)
     await deletePhoto(id)
   }
 
@@ -129,31 +178,19 @@ function WallModal({ wall, gymId, onClose, onSave }) {
 
           {/* Photo upload */}
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Wall photo</label>
-            {photoPreview && (
-              <div className="mb-2 relative">
-                <img
-                  src={photoPreview}
-                  alt="Wall preview"
-                  className="w-full h-32 object-cover rounded-lg border border-slate-700"
+            <label className="block text-xs text-slate-400 mb-2">Wall photos</label>
+            <div className="flex flex-col gap-2">
+              {PHOTO_SLOTS.map(slot => (
+                <PhotoSlot
+                  key={slot.key}
+                  slot={slot}
+                  photoId={form[slot.key]}
+                  busy={busySlot === slot.key}
+                  onPick={e => handleSlotChange(slot.key, e)}
+                  onRemove={() => handleRemoveSlot(slot.key)}
                 />
-                <button
-                  type="button"
-                  onClick={handleRemovePhoto}
-                  className="absolute top-1 right-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded hover:bg-black/80"
-                >
-                  Remove
-                </button>
-              </div>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoChange}
-              disabled={photoBusy}
-              className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer disabled:opacity-50"
-            />
-            {photoBusy && <p className="text-xs text-slate-500 mt-1">Resizing…</p>}
+              ))}
+            </div>
           </div>
 
           {error && <p className="text-red-400 text-xs">{error}</p>}
@@ -183,22 +220,40 @@ function WallModal({ wall, gymId, onClose, onSave }) {
 
 function WallCard({ wall, onEdit, onDelete, onNewRoute }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const photo = usePhoto(wall.photoId)
+  const photo = usePhoto(displayPhotoId(wall))
+  const slots = availablePhotos(wall)
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col hover:border-slate-700 transition-colors">
       {/* Photo or placeholder */}
-      {photo ? (
-        <img
-          src={photo}
-          alt={wall.name}
-          className="w-full h-32 object-cover"
-        />
-      ) : (
-        <div className="w-full h-32 bg-slate-800 flex items-center justify-center text-slate-600 text-xs">
-          No photo
-        </div>
-      )}
+      <div className="relative">
+        {photo ? (
+          <img
+            src={photo}
+            alt={wall.name}
+            className="w-full h-32 object-cover"
+          />
+        ) : (
+          <div className="w-full h-32 bg-slate-800 flex items-center justify-center text-slate-600 text-xs">
+            No photo
+          </div>
+        )}
+
+        {/* Which photo types this wall has */}
+        {slots.length > 0 && (
+          <div className="absolute bottom-1.5 left-1.5 flex gap-1">
+            {slots.map(s => (
+              <span
+                key={s.key}
+                title={s.hint}
+                className="text-xs px-1.5 py-0.5 rounded bg-black/70 text-slate-200 backdrop-blur-sm"
+              >
+                {s.label}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="p-4 flex flex-col gap-3 flex-1">
         {/* Header */}

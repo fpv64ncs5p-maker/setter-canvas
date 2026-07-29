@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { db } from '../db/index'
 import { usePhoto } from '../lib/usePhoto'
+import { displayPhotoId } from '../lib/wallPhotos'
 
 const COLOR_MAP = {
   Red: '#ef4444', Blue: '#3b82f6', Green: '#22c55e', Yellow: '#eab308',
@@ -34,7 +35,7 @@ function Stars({ rating }) {
 // ── Route Card ────────────────────────────────────────────────────────────────
 function RouteCard({ route, wall, avgRating, onClick }) {
   const statusStyle = STATUS_STYLES[route.status] ?? 'bg-slate-700 text-slate-300'
-  const photo = usePhoto(wall?.photoId)
+  const photo = usePhoto(displayPhotoId(wall))
 
   return (
     <div

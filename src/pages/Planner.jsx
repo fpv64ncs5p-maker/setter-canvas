@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Stage, Layer, Image as KonvaImage, Circle, Text, Group, Rect } from 'react-konva'
 import { db, stamp, touch } from '../db/index'
 import { usePhoto } from '../lib/usePhoto'
+import { planningPhotoId, availablePhotos } from '../lib/wallPhotos'
 import { exportRouteCardPdf } from '../lib/exportPdf'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -86,7 +87,17 @@ function snapToGrid(x, y, gridPoints) {
 function Canvas({ wall, grid, placedHolds, holdsLibrary, selectedHoldId, onPlace, selectedPlacedId, setSelectedPlacedId }) {
   const containerRef = useRef(null)
   const [size, setSize] = useState({ w: 800, h: 600 })
-  const wallPhotoUrl = usePhoto(wall?.photoId)
+
+  // Which of the wall's photos to draw underneath. Defaults to the stripped
+  // wall — that's the planning surface — but you can flip to "with holds" to
+  // check what is physically up there without leaving the planner.
+  const [baseSlot, setBaseSlot] = useState(null)
+  const slots = availablePhotos(wall)
+  const activePhotoId = baseSlot
+    ? (wall?.[baseSlot] ?? null)
+    : planningPhotoId(wall)
+
+  const wallPhotoUrl = usePhoto(activePhotoId)
   const wallImage = useImage(wallPhotoUrl)
 
   useEffect(() => {
@@ -127,6 +138,27 @@ function Canvas({ wall, grid, placedHolds, holdsLibrary, selectedHoldId, onPlace
       {selectedHoldId !== null && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-indigo-600/90 text-white text-xs px-3 py-1.5 rounded-full pointer-events-none">
           Click on the wall to place — Esc to cancel
+        </div>
+      )}
+
+      {/* Base photo switcher — only worth showing if there's a choice */}
+      {slots.length > 1 && (
+        <div className="absolute top-3 left-3 z-10 flex gap-1 bg-slate-900/80 backdrop-blur-sm rounded-lg p-1 border border-slate-700">
+          {slots.map(s => {
+            const active = activePhotoId === s.photoId
+            return (
+              <button
+                key={s.key}
+                onClick={() => setBaseSlot(s.key)}
+                title={s.hint}
+                className={`text-xs px-2 py-1 rounded-md transition-colors ${
+                  active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                {s.label}
+              </button>
+            )
+          })}
         </div>
       )}
       <Stage width={size.w} height={size.h} onClick={handleStageClick}>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { db, touch } from '../db/index'
-import { savePhoto } from '../lib/photos'
+import { savePhoto, deletePhoto } from '../lib/photos'
+import { slotKeyFor } from '../lib/wallPhotos'
 
 const PHOTO_TYPES = [
   { id: 'stripped',   label: 'Stripped',    desc: 'Wall cleared of all holds',   emoji: '🧹' },
@@ -80,12 +81,14 @@ export default function MobileUpload() {
     // this must not depend on a network. Upload happens later.
     const photoId = await savePhoto(photoData, selectedWall.gymId)
 
-    // Which slot this photo fills, plus photoId as the wall's current image.
-    const key = photoType === 'stripped' ? 'photoStrippedId'
-              : photoType === 'with-holds' ? 'photoWithHoldsId'
-              : 'photoPartialId'
+    // Fills one named slot. No generic "current photo" any more: which photo
+    // gets shown is decided per context — stripped for planning, with-holds
+    // for thumbnails — rather than by whichever was uploaded last.
+    const key = slotKeyFor(photoType)
+    const previous = selectedWall[key]
 
-    await db.walls.update(selectedWall.id, touch({ [key]: photoId, photoId }))
+    await db.walls.update(selectedWall.id, touch({ [key]: photoId }))
+    if (previous) await deletePhoto(previous)   // replacing, not accumulating
     setUploading(false)
     setStep(4)
   }
