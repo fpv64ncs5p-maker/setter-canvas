@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { db, stamp, touch } from '../db/index'
+import { savePhoto, deletePhoto } from '../lib/photos'
+import { usePhoto } from '../lib/usePhoto'
 
 const WALL_TYPES = ['Boulder', 'Lead', 'Top-rope']
 const ANGLES = ['Vertical', '15°', '30°', '45°', 'Roof']
@@ -11,25 +13,40 @@ const defaultForm = {
   angle: 'Vertical',
   height: '',
   width: '',
-  photo: null,
+  photoId: null,
 }
 
 // ── Modal ────────────────────────────────────────────────────────────────────
 
-function WallModal({ wall, onClose, onSave }) {
+function WallModal({ wall, gymId, onClose, onSave }) {
   const [form, setForm] = useState(wall ? { ...wall } : { ...defaultForm })
   const [error, setError] = useState('')
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const photoPreview = usePhoto(form.photoId)
 
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
-  function handlePhotoChange(e) {
+  async function handlePhotoChange(e) {
     const file = e.target.files[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => set('photo', ev.target.result)
-    reader.readAsDataURL(file)
+    setPhotoBusy(true)
+    try {
+      // Resized and stored locally; uploaded later if signed in.
+      const photoId = await savePhoto(file, gymId)
+      set('photoId', photoId)
+    } catch {
+      setError('Could not read that image. Try a different file.')
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+
+  async function handleRemovePhoto() {
+    const id = form.photoId
+    set('photoId', null)
+    await deletePhoto(id)
   }
 
   async function handleSubmit(e) {
@@ -113,16 +130,16 @@ function WallModal({ wall, onClose, onSave }) {
           {/* Photo upload */}
           <div>
             <label className="block text-xs text-slate-400 mb-1">Wall photo</label>
-            {form.photo && (
+            {photoPreview && (
               <div className="mb-2 relative">
                 <img
-                  src={form.photo}
+                  src={photoPreview}
                   alt="Wall preview"
                   className="w-full h-32 object-cover rounded-lg border border-slate-700"
                 />
                 <button
                   type="button"
-                  onClick={() => set('photo', null)}
+                  onClick={handleRemovePhoto}
                   className="absolute top-1 right-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded hover:bg-black/80"
                 >
                   Remove
@@ -133,8 +150,10 @@ function WallModal({ wall, onClose, onSave }) {
               type="file"
               accept="image/*"
               onChange={handlePhotoChange}
-              className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer"
+              disabled={photoBusy}
+              className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer disabled:opacity-50"
             />
+            {photoBusy && <p className="text-xs text-slate-500 mt-1">Resizing…</p>}
           </div>
 
           {error && <p className="text-red-400 text-xs">{error}</p>}
@@ -164,13 +183,14 @@ function WallModal({ wall, onClose, onSave }) {
 
 function WallCard({ wall, onEdit, onDelete, onNewRoute }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const photo = usePhoto(wall.photoId)
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col hover:border-slate-700 transition-colors">
       {/* Photo or placeholder */}
-      {wall.photo ? (
+      {photo ? (
         <img
-          src={wall.photo}
+          src={photo}
           alt={wall.name}
           className="w-full h-32 object-cover"
         />
@@ -365,6 +385,7 @@ export default function Walls() {
       {modal !== null && (
         <WallModal
           wall={modal === 'new' ? null : modal}
+          gymId={gymId}
           onClose={() => setModal(null)}
           onSave={handleSave}
         />

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Stage, Layer, Image as KonvaImage, Circle, Text, Group, Rect } from 'react-konva'
 import { db, stamp, touch } from '../db/index'
+import { usePhoto } from '../lib/usePhoto'
 import { exportRouteCardPdf } from '../lib/exportPdf'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -85,7 +86,8 @@ function snapToGrid(x, y, gridPoints) {
 function Canvas({ wall, grid, placedHolds, holdsLibrary, selectedHoldId, onPlace, selectedPlacedId, setSelectedPlacedId }) {
   const containerRef = useRef(null)
   const [size, setSize] = useState({ w: 800, h: 600 })
-  const wallImage = useImage(wall?.photo ?? null)
+  const wallPhotoUrl = usePhoto(wall?.photoId)
+  const wallImage = useImage(wallPhotoUrl)
 
   useEffect(() => {
     if (!containerRef.current) return

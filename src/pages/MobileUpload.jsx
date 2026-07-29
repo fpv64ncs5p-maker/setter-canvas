@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { db, touch } from '../db/index'
+import { savePhoto } from '../lib/photos'
 
 const PHOTO_TYPES = [
   { id: 'stripped',   label: 'Stripped',    desc: 'Wall cleared of all holds',   emoji: '🧹' },
@@ -55,27 +56,36 @@ export default function MobileUpload() {
     setStep(3)
   }
 
+  // Object URLs pin their file in memory until revoked, so each new preview
+  // releases the one before it.
+  function showPreview(file) {
+    setPreview(old => {
+      if (old) URL.revokeObjectURL(old)
+      return file ? URL.createObjectURL(file) : null
+    })
+  }
+
   function handleFileChange(e) {
     const file = e.target.files[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => {
-      setPhotoData(ev.target.result)
-      setPreview(ev.target.result)
-    }
-    reader.readAsDataURL(file)
+    setPhotoData(file)                              // resized on save, not now
+    showPreview(file)
   }
 
   async function handleUpload() {
     if (!photoData || !selectedWall) return
     setUploading(true)
 
-    // Store the photo on the wall record under the appropriate key
-    const key = photoType === 'stripped' ? 'photoStripped'
-              : photoType === 'with-holds' ? 'photoWithHolds'
-              : 'photoPartial'
+    // Resize and store locally — a gym is exactly where signal is worst, so
+    // this must not depend on a network. Upload happens later.
+    const photoId = await savePhoto(photoData, selectedWall.gymId)
 
-    await db.walls.update(selectedWall.id, touch({ [key]: photoData, photo: photoData }))
+    // Which slot this photo fills, plus photoId as the wall's current image.
+    const key = photoType === 'stripped' ? 'photoStrippedId'
+              : photoType === 'with-holds' ? 'photoWithHoldsId'
+              : 'photoPartialId'
+
+    await db.walls.update(selectedWall.id, touch({ [key]: photoId, photoId }))
     setUploading(false)
     setStep(4)
   }
@@ -85,7 +95,7 @@ export default function MobileUpload() {
     setSelectedGym(null)
     setSelectedWall(null)
     setPhotoType(null)
-    setPreview(null)
+    showPreview(null)
     setPhotoData(null)
   }
 
@@ -188,7 +198,7 @@ export default function MobileUpload() {
               <div className="relative mb-4 rounded-2xl overflow-hidden">
                 <img src={preview} alt="Preview" className="w-full object-cover rounded-2xl" />
                 <button
-                  onClick={() => { setPreview(null); setPhotoData(null) }}
+                  onClick={() => { showPreview(null); setPhotoData(null) }}
                   className="absolute top-2 right-2 bg-black/60 text-white text-xs px-3 py-1 rounded-full"
                 >
                   Retake

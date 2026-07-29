@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { db } from '../db/index'
+import { usePhoto } from '../lib/usePhoto'
 
 const COLOR_MAP = {
   Red: '#ef4444', Blue: '#3b82f6', Green: '#22c55e', Yellow: '#eab308',
@@ -33,6 +34,7 @@ function Stars({ rating }) {
 // ── Route Card ────────────────────────────────────────────────────────────────
 function RouteCard({ route, wall, avgRating, onClick }) {
   const statusStyle = STATUS_STYLES[route.status] ?? 'bg-slate-700 text-slate-300'
+  const photo = usePhoto(wall?.photoId)
 
   return (
     <div
@@ -40,8 +42,8 @@ function RouteCard({ route, wall, avgRating, onClick }) {
       className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col cursor-pointer hover:border-slate-600 hover:shadow-lg hover:shadow-black/30 transition-all"
     >
       {/* Thumbnail */}
-      {wall?.photo ? (
-        <img src={wall.photo} alt={wall.name} className="w-full h-36 object-cover" />
+      {photo ? (
+        <img src={photo} alt={wall.name} className="w-full h-36 object-cover" />
       ) : (
         <div className="w-full h-36 bg-slate-800 flex items-center justify-center text-slate-600 text-xs">
           No wall photo

@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, Link } from 'react-router-dom'
 import { useAuth } from '../lib/authContext'
+import { uploadPendingPhotos, pendingPhotoCount } from '../lib/photos'
 
 const nav = [
   { to: '/',        label: 'Dashboard' },
@@ -9,6 +11,32 @@ const nav = [
 
 export default function AppLayout() {
   const { user, configured } = useAuth()
+  const [pending, setPending] = useState(0)
+  const [uploading, setUploading] = useState(false)
+
+  // Photos are saved locally first — a gym is exactly where signal is worst.
+  // Once signed in, send up whatever is still only on this device.
+  useEffect(() => {
+    let active = true
+
+    async function run() {
+      if (!user) {
+        const count = await pendingPhotoCount()
+        if (active) setPending(count)
+        return
+      }
+      setUploading(true)
+      await uploadPendingPhotos(user.id)
+      const remaining = await pendingPhotoCount()
+      if (active) {
+        setPending(remaining)
+        setUploading(false)
+      }
+    }
+
+    run()
+    return () => { active = false }
+  }, [user])
 
   return (
     <div className="flex h-screen bg-slate-950 text-white">
@@ -61,6 +89,15 @@ export default function AppLayout() {
               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${user ? 'bg-emerald-400' : 'bg-slate-600'}`} />
               <span className="truncate">{user ? user.email : 'Sign in to sync'}</span>
             </Link>
+          )}
+
+          {/* Photos still only on this device */}
+          {pending > 0 && (
+            <p className="px-3 pt-1 text-xs text-slate-600">
+              {uploading
+                ? 'Uploading photos…'
+                : `${pending} photo${pending === 1 ? '' : 's'} on this device only`}
+            </p>
           )}
         </div>
       </aside>

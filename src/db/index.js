@@ -30,6 +30,24 @@ db.version(3).stores({
   feedback: 'id, routeId, date, updatedAt',
 })
 
+// ── v4 — photos live in their own table, as Blobs ───────────────────────────
+// Photo bytes are big. Keeping them on the wall row would mean every list
+// query drags megabytes along just to draw a thumbnail, and later sync would
+// push image data every time a wall's name changed. So walls store a photo id
+// and the bytes live here.
+//
+// `path` is the Supabase Storage path, null until uploaded. `uploaded` is 0/1
+// rather than a boolean because IndexedDB cannot index booleans.
+db.version(4).stores({
+  gyms:     'id, name, location, gradingSystem, updatedAt',
+  walls:    'id, gymId, name, type, angle, updatedAt',
+  holds:    'id, gymId, name, brand, type, size, color, updatedAt',
+  routes:   'id, wallId, gymId, name, grade, status, dateSet, updatedAt',
+  testers:  'id, routeId, name, date, updatedAt',
+  feedback: 'id, routeId, date, updatedAt',
+  photos:   'id, gymId, uploaded, updatedAt',
+})
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 /** New UUID for a record. Safe on all browsers that support IndexedDB + HTTPS. */
