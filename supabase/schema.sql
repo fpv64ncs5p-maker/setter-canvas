@@ -187,6 +187,29 @@ begin
 end;
 $$;
 
+-- ── Grants ────────────────────────────────────────────────────────────────
+-- Grants and RLS are two different layers: a grant decides whether a role may
+-- touch the table at all, RLS decides which rows it then sees. Supabase used
+-- to add these grants automatically, but is moving to a stricter default
+-- (applied to existing projects on 2026-10-30). Doing it explicitly here means
+-- the app keeps working either way.
+--
+-- Only `authenticated` is granted. Anonymous visitors get nothing: the RLS
+-- policies match on auth.uid(), which is null for them, so they would see no
+-- rows regardless — but no grant at all is the tighter statement of intent.
+-- (A future public feedback link would need its own policy and grant.)
+
+grant usage on schema public to authenticated;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['gyms','walls','holds','routes','testers','feedback'] loop
+    execute format('grant select, insert, update, delete on public.%I to authenticated', t);
+  end loop;
+end;
+$$;
+
 -- ── Storage buckets ───────────────────────────────────────────────────────
 -- Private buckets; files are read via signed URLs.
 -- Convention: <user_id>/<gym_id>/<filename> — the first path segment is the
