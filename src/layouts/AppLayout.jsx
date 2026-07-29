@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, Link } from 'react-router-dom'
+import { useAuth } from '../lib/authContext'
 
 const nav = [
   { to: '/',        label: 'Dashboard' },
@@ -7,6 +8,8 @@ const nav = [
 ]
 
 export default function AppLayout() {
+  const { user, configured } = useAuth()
+
   return (
     <div className="flex h-screen bg-slate-950 text-white">
       {/* Sidebar */}
@@ -46,6 +49,19 @@ export default function AppLayout() {
             <span>📱</span>
             <span>Mobile upload</span>
           </a>
+
+          {/* Account — only shown once Supabase is configured. Sign-in is
+              optional; the app is local-first and works without it. */}
+          {configured && (
+            <Link
+              to="/login"
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-xs text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
+              title={user ? user.email : 'Not signed in — data stays on this device'}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${user ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+              <span className="truncate">{user ? user.email : 'Sign in to sync'}</span>
+            </Link>
+          )}
         </div>
       </aside>
 
