@@ -81,7 +81,14 @@ export default function Login() {
     setBusy(false)
 
     if (authError) {
-      setError(authError.message)
+      // Supabase returns the same vague "Invalid login credentials" whether the
+      // password is wrong or the account exists but is unconfirmed, which sends
+      // you hunting in the wrong place. Add the missing context.
+      setError(
+        /invalid login credentials/i.test(authError.message)
+          ? 'Invalid login credentials — wrong password, or the account still needs email confirmation.'
+          : authError.message
+      )
       return
     }
 
