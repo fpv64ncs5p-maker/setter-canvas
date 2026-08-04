@@ -210,6 +210,33 @@ begin
 end;
 $$;
 
+-- ── Heartbeat ─────────────────────────────────────────────────────────────
+-- Free-plan projects are paused after 7 days without database activity, and
+-- restoring by hand each time is a nuisance. A scheduled GitHub Action reads
+-- this table every few days to keep the project awake.
+--
+-- It needs its own table because every other table here is deliberately
+-- unreadable without a login, so an anonymous ping would be rejected rather
+-- than counting as a real query. This table holds one row containing a
+-- timestamp and nothing else, so making it publicly readable costs nothing.
+
+create table if not exists public.heartbeat (
+  id         smallint primary key default 1,
+  pinged_at  timestamptz not null default now(),
+  constraint heartbeat_is_a_single_row check (id = 1)
+);
+
+insert into public.heartbeat (id) values (1) on conflict (id) do nothing;
+
+alter table public.heartbeat enable row level security;
+
+drop policy if exists "heartbeat_readable" on public.heartbeat;
+create policy "heartbeat_readable" on public.heartbeat
+  for select using (true);
+
+grant usage on schema public to anon;
+grant select on public.heartbeat to anon;
+
 -- ── Storage buckets ───────────────────────────────────────────────────────
 -- Private buckets; files are read via signed URLs.
 -- Convention: <user_id>/<gym_id>/<filename> — the first path segment is the

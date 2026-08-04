@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# The keep-alive workflow is added through GitHub's web editor instead:
+# pushing workflow files needs a token with `workflow` scope, which the
+# current one lacks. Remove this line once the token is sorted.
+.github/workflows/keepalive.yml
